@@ -26,8 +26,13 @@ func (h *QuestDBHandler) Handle(_ context.Context, canMsgBatch *can.Message) (*q
 		row := questdb.NewRow(table.String())
 
 		row.AddColumn(questdb.NewSymbolColumn("name", sig.Name))
-		row.AddColumn(questdb.NewIntColumn("can_id", sig.CANID))
-		row.AddColumn(questdb.NewIntColumn("raw_value", sig.RawValue))
+
+		// For enum signals, since it uses a symbol column, we need to add the can_id and raw_value
+		// columns after the enum_value column
+		if table != can.CANSignalTableEnum {
+			row.AddColumn(questdb.NewIntColumn("can_id", sig.CANID))
+			row.AddColumn(questdb.NewIntColumn("raw_value", sig.RawValue))
+		}
 
 		switch table {
 		case can.CANSignalTableFlag:
@@ -41,6 +46,8 @@ func (h *QuestDBHandler) Handle(_ context.Context, canMsgBatch *can.Message) (*q
 
 		case can.CANSignalTableEnum:
 			row.AddColumn(questdb.NewSymbolColumn("enum_value", sig.ValueEnum))
+			row.AddColumn(questdb.NewIntColumn("can_id", sig.CANID))
+			row.AddColumn(questdb.NewIntColumn("raw_value", sig.RawValue))
 		}
 
 		rows = append(rows, row)
