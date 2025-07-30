@@ -1,4 +1,4 @@
-name: Container Build and Push
+name: Container Build
 
 on:
     push:
@@ -13,9 +13,7 @@ jobs:
               id: meta
               uses: docker/metadata-action@v5
               with:
-                  # list of Docker images to use as base name for tags
-                  images: ${{ vars.DOCKERHUB_IMAGE }}
-                  # generate Docker tags based on the following events/attributes
+                  images: ${{ vars.DOCKERHUB_USERNAME }}/${{ github.event.repository.name }}
                   tags: |
                       type=semver,pattern={{version}}
                       type=semver,pattern={{major}}.{{minor}}
@@ -37,6 +35,7 @@ jobs:
             - name: Build and Push
               uses: docker/build-push-action@v6
               with:
+                  platforms: linux/amd64,linux/arm64
                   push: true
                   tags: ${{ steps.meta.outputs.tags }}
                   labels: ${{ steps.meta.outputs.labels }}
