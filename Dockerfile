@@ -1,4 +1,4 @@
-FROM golang:1.24 AS builder
+FROM golang:1.25 AS builder
 
 WORKDIR /build
 
@@ -9,10 +9,13 @@ RUN go mod download
 
 # Copy source code
 COPY cmd/ ./cmd/
+COPY internal/ ./internal/
 COPY pkg/ ./pkg/
 
+# Copy the default config file
+COPY config.yaml /build/config/config.yaml
+
 # Create directory structure that will be copied to final image
-RUN mkdir -p /build/config
 RUN mkdir -p /build/can
 
 # ./cmd is the folder where the main.go file is located
@@ -26,7 +29,7 @@ WORKDIR /app
 COPY --from=builder /build/app .
 
 # Copy the directory structure from the builder stage
-COPY --from=builder /build/config ./config
+COPY --from=builder /build/config/ ./config/
 COPY --from=builder /build/can ./can
 
 # Expose default UDP port

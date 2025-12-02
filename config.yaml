@@ -1,0 +1,69 @@
+# sc-telemetry default configuration
+
+# The service name is used to add resource attributes to
+# traces, metrics, and logs
+service_name: sc-telemetry
+
+# The connector size is used to configure the ring buffer size
+# to use between stages
+connector_size: 2048
+
+# UDP ingress stage configuration
+udp:
+  # The address to listen on
+  ip_addr: 127.0.0.1
+  # The port to listen on
+  port: 20_000
+
+# Cannelloni decoder processor stage configuration
+cannelloni:
+  # The running mode of the stage (pool or single)
+  running_mode: pool
+  # The maximum number of workers to use (pool mode only)
+  max_workers: 4
+  # The target queue depth used for scaling up/down
+  # the number of workers (pool mode only)
+  target_queue_depth: 64
+
+# ROB (Re-Order Buffer) processor stage configuration
+rob:
+  # The time duration to wait before resetting the ROB.
+  # This is used to prevent the ROB from waiting
+  # for messages that are lost
+  reset_timeout: 100ms
+
+# CAN processor stage configuration
+can:
+  # The running mode of the stage (pool or single)
+  running_mode: pool
+  # The maximum number of workers to use (pool mode only)
+  max_workers: 4
+  # The target queue depth used for scaling up/down
+  # the number of workers (pool mode only)
+  target_queue_depth: 64
+
+  # The path to the dbc file to use for decoding
+  # CAN messages
+  dbc_file_path: /app/can/bus.dbc
+
+# CAN message handler custom processor stage configuration
+can_message_handler:
+  # The running mode of the stage (pool or single)
+  running_mode: pool
+  # The maximum number of workers to use (pool mode only)
+  max_workers: 4
+  # The target queue depth used for scaling up/down
+  # the number of workers (pool mode only)
+  target_queue_depth: 64
+
+# QuestDB egress stage configuration
+quest_db:
+  # The running mode of the stage (pool or single)
+  running_mode: pool
+  # The maximum number of workers to use (pool mode only)
+  max_workers: 4
+  # The target queue depth used for scaling up/down
+  # the number of workers (pool mode only)
+  target_queue_depth: 64
+  # The address to connect to
+  address: http://questdb:9009

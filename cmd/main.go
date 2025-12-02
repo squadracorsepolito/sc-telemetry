@@ -2,16 +2,17 @@ package main
 
 import (
 	"context"
+	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/squadracorsepolito/acmetel"
-	"github.com/squadracorsepolito/acmetel/can"
-	"github.com/squadracorsepolito/acmetel/cannelloni"
-	"github.com/squadracorsepolito/acmetel/connector"
-	"github.com/squadracorsepolito/acmetel/questdb"
-	"github.com/squadracorsepolito/acmetel/udp"
+	"github.com/FerroO2000/goccia"
+	"github.com/FerroO2000/goccia/connector"
+	"github.com/FerroO2000/goccia/egress"
+	"github.com/FerroO2000/goccia/ingress"
+	"github.com/FerroO2000/goccia/processor"
+	"github.com/squadracorsepolito/sc-telemetry/internal"
 	"github.com/squadracorsepolito/sc-telemetry/pkg"
 )
 
@@ -27,52 +28,45 @@ func main() {
 
 	// Telemetry setup
 	telemetry := pkg.NewTelemetry(config.ServiceName)
-	if err := telemetry.Init(ctx); err != nil {
-		panic(err)
+	if err := telemetry.Init(ctx, config.Telemetry); err != nil {
+		log.Print("cannot initialize telemetry, use noop: ", err)
 	}
 	defer telemetry.Close()
 
+	connectorSize := config.ConnectorSize
+
 	// Connectors setup
-	udpToCannelloni := connector.NewRingBuffer[*udp.Message](uint32(config.Connectors.UDPSize))
-	cannelloniToCAN := connector.NewRingBuffer[*cannelloni.Message](uint32(config.Connectors.CannelloniSize))
-	canToQuestDB := connector.NewRingBuffer[*can.Message](uint32(config.Connectors.CANSize))
+	udpToCannelloni := connector.NewRingBuffer[*ingress.UDPMessage](connectorSize)
+	cannelloniToROB := connector.NewRingBuffer[*processor.CannelloniMessage](connectorSize)
+	robToCAN := connector.NewRingBuffer[*processor.CannelloniMessage](connectorSize)
+	canToHandler := connector.NewRingBuffer[*processor.CANMessage](connectorSize)
+	canToQuestDB := connector.NewRingBuffer[*egress.QuestDBMessage](connectorSize)
 
-	// First stage: UDP ingress
-	udpCfg := config.Stages.UDP
-	udpIngress := udp.NewStage(udpToCannelloni, udpCfg)
+	// Setup stages
+	udpStage := ingress.NewUDPStage(udpToCannelloni, config.UDP.GetStageConfig())
+	cannelloniStage := processor.NewCannelloniDecoderStage(udpToCannelloni, cannelloniToROB, config.Cannelloni.GetStageConfig())
+	robStage := processor.NewROBStage(cannelloniToROB, robToCAN, config.ROB.GetStageConfig())
+	canStage := processor.NewCANStage(robToCAN, canToHandler, config.CAN.GetStageConfig())
+	handlerStage := processor.NewCustomStage(
+		internal.NewCANMessageHandler(), canToHandler, canToQuestDB, config.CANMessageHandler.GetStageConfig(),
+	)
+	questDBStage := egress.NewQuestDBStage(canToQuestDB, config.QuestDB.GetStageConfig())
 
-	// Second stage: cannelloni handler
-	cannelloniCfg := cannelloni.NewDefaultConfig()
-	cannelloniHandler := cannelloni.NewStage(udpToCannelloni, cannelloniToCAN, cannelloniCfg)
+	pipeline := goccia.NewPipeline()
 
-	// Third stage: CAN handler
-	canMessages, err := pkg.GetMessagesFromDBC(config.DBCFilePath)
-	if err != nil {
-		panic(err)
-	}
-
-	canCfg := config.Stages.CAN
-	canCfg.Messages = canMessages
-	canHandler := can.NewStage(cannelloniToCAN, canToQuestDB, canCfg)
-
-	// Fourth stage: QuestDB egress
-	questDBCfg := config.Stages.QuestDB
-	questDBEgress := questdb.NewStage(pkg.NewQuestDBHandler(), canToQuestDB, questDBCfg)
-
-	// Pipeline setup
-	pipeline := acmetel.NewPipeline()
-
-	pipeline.AddStage(udpIngress)
-	pipeline.AddStage(cannelloniHandler)
-	pipeline.AddStage(canHandler)
-	pipeline.AddStage(questDBEgress)
+	pipeline.AddStage(udpStage)
+	pipeline.AddStage(cannelloniStage)
+	pipeline.AddStage(robStage)
+	pipeline.AddStage(canStage)
+	pipeline.AddStage(handlerStage)
+	pipeline.AddStage(questDBStage)
 
 	if err := pipeline.Init(ctx); err != nil {
 		panic(err)
 	}
 
 	go pipeline.Run(ctx)
-	defer pipeline.Stop()
+	defer pipeline.Close()
 
 	<-ctx.Done()
 }

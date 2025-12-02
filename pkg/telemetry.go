@@ -2,6 +2,7 @@ package pkg
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -11,7 +12,10 @@ import (
 	sdkmetric "go.opentelemetry.io/otel/sdk/metric"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
-	semconv "go.opentelemetry.io/otel/semconv/v1.34.0"
+	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
+	"google.golang.org/grpc/credentials/insecure"
 )
 
 type Telemetry struct {
@@ -30,6 +34,7 @@ func NewTelemetry(name string) *Telemetry {
 		resource.NewWithAttributes(
 			semconv.SchemaURL,
 			semconv.ServiceName(name),
+			semconv.ServiceVersion("2.0.0"),
 		),
 	)
 
@@ -42,9 +47,8 @@ func NewTelemetry(name string) *Telemetry {
 	}
 }
 
-func (t *Telemetry) initTraceExporter(ctx context.Context) error {
-	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithInsecure())
-
+func (t *Telemetry) initTraceExporter(ctx context.Context, conn *grpc.ClientConn) error {
+	exporter, err := otlptracegrpc.New(ctx, otlptracegrpc.WithGRPCConn(conn))
 	if err != nil {
 		return err
 	}
@@ -54,8 +58,8 @@ func (t *Telemetry) initTraceExporter(ctx context.Context) error {
 	return nil
 }
 
-func (t *Telemetry) initMeterExporter(ctx context.Context) error {
-	exporter, err := otlpmetricgrpc.New(ctx)
+func (t *Telemetry) initMeterExporter(ctx context.Context, conn *grpc.ClientConn) error {
+	exporter, err := otlpmetricgrpc.New(ctx, otlpmetricgrpc.WithGRPCConn(conn))
 	if err != nil {
 		return err
 	}
@@ -88,12 +92,25 @@ func (t *Telemetry) initMeterProvider() {
 	otel.SetMeterProvider(provider)
 }
 
-func (t *Telemetry) Init(ctx context.Context) error {
-	if err := t.initTraceExporter(ctx); err != nil {
+func (t *Telemetry) Init(ctx context.Context, cfg *TelemetryConfig) error {
+	// Create gRPC connection
+	grpcTransport := grpc.WithTransportCredentials(insecure.NewCredentials())
+	grcpConn, err := grpc.NewClient(cfg.CollectorEndpoint, grpcTransport)
+	if err != nil {
 		return err
 	}
 
-	if err := t.initMeterExporter(ctx); err != nil {
+	// Check connection state
+	state := grcpConn.GetState()
+	if state != connectivity.Ready {
+		return errors.New("otel gRPC connection not ready")
+	}
+
+	if err := t.initTraceExporter(ctx, grcpConn); err != nil {
+		return err
+	}
+
+	if err := t.initMeterExporter(ctx, grcpConn); err != nil {
 		return err
 	}
 
@@ -104,6 +121,11 @@ func (t *Telemetry) Init(ctx context.Context) error {
 }
 
 func (t *Telemetry) Close() {
-	t.traceProvider.Shutdown(context.Background())
-	t.meterProvider.Shutdown(context.Background())
+	if t.traceExporter != nil {
+		t.traceProvider.Shutdown(context.Background())
+	}
+
+	if t.meterExporter != nil {
+		t.meterProvider.Shutdown(context.Background())
+	}
 }
