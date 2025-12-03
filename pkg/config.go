@@ -11,7 +11,7 @@ import (
 	"github.com/FerroO2000/goccia/egress"
 	"github.com/FerroO2000/goccia/ingress"
 	"github.com/FerroO2000/goccia/processor"
-	"github.com/caarlos0/env"
+	"github.com/caarlos0/env/v11"
 	"github.com/goccy/go-yaml"
 	"github.com/squadracorsepolito/acmelib"
 )

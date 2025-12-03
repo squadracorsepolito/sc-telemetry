@@ -4,7 +4,7 @@ go 1.25.4
 
 require (
 	github.com/FerroO2000/goccia v0.8.3
-	github.com/caarlos0/env v3.5.0+incompatible
+	github.com/caarlos0/env/v11 v11.3.1
 	github.com/goccy/go-yaml v1.19.0
 	github.com/squadracorsepolito/acmelib v1.16.1
 	go.opentelemetry.io/otel v1.38.0
