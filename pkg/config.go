@@ -60,6 +60,7 @@ func defaultConfig() *Config {
 			Address: "localhost:9000",
 		},
 		Telemetry: &TelemetryConfig{
+			Enabled:           true,
 			CollectorEndpoint: "localhost:4317",
 		},
 	}
@@ -227,6 +228,7 @@ func (c *QuestDBStageConfig) GetStageConfig() *egress.QuestDBConfig {
 }
 
 type TelemetryConfig struct {
+	Enabled           bool   `yaml:"enabled" env:"ENABLED"`
 	CollectorEndpoint string `yaml:"collector_endpoint" env:"COLLECTOR_ENDPOINT"`
 }
 

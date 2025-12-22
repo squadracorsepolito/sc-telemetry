@@ -26,12 +26,14 @@ func main() {
 		panic(err)
 	}
 
-	// Telemetry setup
-	telemetry := pkg.NewTelemetry(config.ServiceName)
-	if err := telemetry.Init(ctx, config.Telemetry); err != nil {
-		log.Print("cannot initialize telemetry, use noop: ", err)
+	if config.Telemetry.Enabled {
+		// Telemetry setup
+		telemetry := pkg.NewTelemetry(config.ServiceName)
+		if err := telemetry.Init(ctx, config.Telemetry); err != nil {
+			log.Print("cannot initialize telemetry, use noop: ", err)
+		}
+		defer telemetry.Close()
 	}
-	defer telemetry.Close()
 
 	connectorSize := config.ConnectorSize
 

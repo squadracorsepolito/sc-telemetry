@@ -89,4 +89,11 @@ quest_db:
     target_queue_depth: 64
     # The address to connect to
     address: http://questdb:9009
+
+# OpenTelemetry configuration
+telemetry:
+    # Enable telemetry
+    enabled: true
+    # The endpoint to send telemetry to (gRPC)
+    collector_endpoint: localhost:4317
 ```
