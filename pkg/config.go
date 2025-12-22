@@ -90,7 +90,7 @@ type UDPStageConfig struct {
 }
 
 func (c *UDPStageConfig) GetStageConfig() *ingress.UDPConfig {
-	stageCfg := ingress.DefaultUDPConfig()
+	stageCfg := ingress.NewUDPConfig()
 
 	stageCfg.IPAddr = c.IPAddr
 	stageCfg.Port = c.Port
@@ -110,10 +110,10 @@ type CannelloniStageConfig struct {
 
 func (c *CannelloniStageConfig) GetStageConfig() *processor.CannelloniConfig {
 	if c.RunningMode == StageRunningModeSingle {
-		return processor.DefaultCannelloniConfig(goccia.StageRunningModeSingle)
+		return processor.NewCannelloniConfig(goccia.StageRunningModeSingle)
 	}
 
-	cfg := processor.DefaultCannelloniConfig(goccia.StageRunningModePool)
+	cfg := processor.NewCannelloniConfig(goccia.StageRunningModePool)
 
 	cfg.Stage.Pool.MaxWorkers = c.MaxWorkers
 	cfg.Stage.Pool.QueueDepthPerWorker = c.TargetQueueDepth
@@ -126,7 +126,7 @@ type ROBStageConfig struct {
 }
 
 func (c *ROBStageConfig) GetStageConfig() *processor.ROBConfig {
-	stageCfg := processor.DefaultROBConfig()
+	stageCfg := processor.NewROBConfig()
 
 	stageCfg.ResetTimeout = c.ResetTimeout
 
@@ -141,10 +141,10 @@ type CANStageConfig struct {
 
 func (c *CANStageConfig) GetStageConfig() *processor.CANConfig {
 	if c.RunningMode == StageRunningModeSingle {
-		return processor.DefaultCANConfig(goccia.StageRunningModeSingle)
+		return processor.NewCANConfig(goccia.StageRunningModeSingle)
 	}
 
-	stageCfg := processor.DefaultCANConfig(goccia.StageRunningModePool)
+	stageCfg := processor.NewCANConfig(goccia.StageRunningModePool)
 
 	stageCfg.Stage.Pool.MaxWorkers = c.MaxWorkers
 	stageCfg.Stage.Pool.QueueDepthPerWorker = c.TargetQueueDepth
@@ -188,10 +188,10 @@ func (c *CANMessageHandlerStageConfig) GetStageConfig() *processor.CustomConfig 
 
 	switch c.RunningMode {
 	case StageRunningModeSingle:
-		stageCfg = processor.DefaultCustomConfig(goccia.StageRunningModeSingle)
+		stageCfg = processor.NewCustomConfig(goccia.StageRunningModeSingle)
 
 	case StageRunningModePool:
-		stageCfg = processor.DefaultCustomConfig(goccia.StageRunningModePool)
+		stageCfg = processor.NewCustomConfig(goccia.StageRunningModePool)
 
 		stageCfg.Stage.Pool.MaxWorkers = c.MaxWorkers
 		stageCfg.Stage.Pool.QueueDepthPerWorker = c.TargetQueueDepth
@@ -212,10 +212,10 @@ func (c *QuestDBStageConfig) GetStageConfig() *egress.QuestDBConfig {
 	var stageCfg *egress.QuestDBConfig
 	switch c.RunningMode {
 	case StageRunningModeSingle:
-		stageCfg = egress.DefaultQuestDBConfig(goccia.StageRunningModeSingle)
+		stageCfg = egress.NewQuestDBConfig(goccia.StageRunningModeSingle)
 
 	case StageRunningModePool:
-		stageCfg = egress.DefaultQuestDBConfig(goccia.StageRunningModePool)
+		stageCfg = egress.NewQuestDBConfig(goccia.StageRunningModePool)
 
 		stageCfg.Stage.Pool.MaxWorkers = c.MaxWorkers
 		stageCfg.Stage.Pool.QueueDepthPerWorker = c.TargetQueueDepth

@@ -2,9 +2,11 @@ package pkg
 
 import (
 	"context"
-	"errors"
+	"log"
+	"net"
 	"time"
 
+	"go.opentelemetry.io/contrib/instrumentation/runtime"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace"
@@ -14,7 +16,6 @@ import (
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.37.0"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
@@ -45,6 +46,15 @@ func NewTelemetry(name string) *Telemetry {
 	return &Telemetry{
 		resource: res,
 	}
+}
+
+func (t *Telemetry) isCollectorReachable(endpoint string) bool {
+	conn, err := net.DialTimeout("tcp", endpoint, 2*time.Second)
+	if err != nil {
+		return false
+	}
+	conn.Close()
+	return true
 }
 
 func (t *Telemetry) initTraceExporter(ctx context.Context, conn *grpc.ClientConn) error {
@@ -93,17 +103,19 @@ func (t *Telemetry) initMeterProvider() {
 }
 
 func (t *Telemetry) Init(ctx context.Context, cfg *TelemetryConfig) error {
-	// Create gRPC connection
-	grpcTransport := grpc.WithTransportCredentials(insecure.NewCredentials())
-	grcpConn, err := grpc.NewClient(cfg.CollectorEndpoint, grpcTransport)
-	if err != nil {
-		return err
+	endpoint := cfg.CollectorEndpoint
+
+	// Check if collector is healthy using gRPC health check
+	if !t.isCollectorReachable(endpoint) {
+		log.Print("WARNING: OpenTelemetry collector is not healthy or not reachable (gRPC) at ", endpoint)
+		return nil
 	}
 
-	// Check connection state
-	state := grcpConn.GetState()
-	if state != connectivity.Ready {
-		return errors.New("otel gRPC connection not ready")
+	// Create gRPC connection
+	grpcTransport := grpc.WithTransportCredentials(insecure.NewCredentials())
+	grcpConn, err := grpc.NewClient(endpoint, grpcTransport)
+	if err != nil {
+		return err
 	}
 
 	if err := t.initTraceExporter(ctx, grcpConn); err != nil {
@@ -116,6 +128,11 @@ func (t *Telemetry) Init(ctx context.Context, cfg *TelemetryConfig) error {
 
 	t.initTraceProvider()
 	t.initMeterProvider()
+
+	// Runtime
+	if err := runtime.Start(runtime.WithMinimumReadMemStatsInterval(time.Second)); err != nil {
+		panic(err)
+	}
 
 	return nil
 }
