@@ -68,7 +68,7 @@ func defaultConfig() *Config {
 
 type Config struct {
 	ServiceName       string                        `yaml:"service_name" env:"SERVICE_NAME"`
-	ConnectorSize     uint32                        `yaml:"connector_size" env:"CONNECTOR_SIZE"`
+	ConnectorSize     uint64                        `yaml:"connector_size" env:"CONNECTOR_SIZE"`
 	UDP               *UDPStageConfig               `yaml:"udp" envPrefix:"UDP_"`
 	Cannelloni        *CannelloniStageConfig        `yaml:"cannelloni" envPrefix:"CANNELLONI_"`
 	ROB               *ROBStageConfig               `yaml:"rob" envPrefix:"ROB_"`
